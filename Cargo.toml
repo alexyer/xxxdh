@@ -1,0 +1,27 @@
+[package]
+name = "xxxdh"
+license = "MIT"
+version = "0.1.0"
+edition = "2021"
+authors = ["Oleksandr Yermakov <olexander.yermakov@gmail.com>"]
+categories = ["cryptography"]
+keywords = ["crypto", "cryptography", "x3dh"]
+description = "Pure Rust X3DH key exchange protocol implementation"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+aes-gcm = {version = "0.9.4", optional = true }
+curve25519-dalek-ng = { version = "4.1.1", optional = true }
+hkdf = "0.12.0"
+rand_core = "0.6.3"
+schnorrkel = { version = "0.10.2", optional = true }
+sha2 = "0.10.0"
+zeroize = "1.4.3"
+
+[features]
+default = ["x25519-ristretto", "sha256", "aead-aes-gcm"]
+aead-aes-gcm = ["aes-gcm"]
+sha256 = []
+sha512 = []
+x25519-ristretto = ["curve25519-dalek-ng", "schnorrkel"]
