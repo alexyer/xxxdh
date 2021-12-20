@@ -32,45 +32,19 @@ pub trait SecretKey: Zeroize + Debug {
 
 pub trait SharedSecretKey {}
 
-pub struct KeyPair<SK, PK>
+pub struct KeyPair<SK>
 where
     SK: SecretKey,
-    PK: PublicKey,
 {
     secret: SK,
-    public: PK,
+    public: SK::PK,
 }
 
-impl<SK, PK> Zeroize for KeyPair<SK, PK>
+impl<SK> KeyPair<SK>
 where
     SK: SecretKey,
-    PK: PublicKey,
 {
-    fn zeroize(&mut self) {
-        self.secret.zeroize();
-    }
-}
-
-impl<SK, PK> Drop for KeyPair<SK, PK>
-where
-    SK: SecretKey,
-    PK: PublicKey,
-{
-    fn drop(&mut self) {
-        self.zeroize();
-    }
-}
-
-/// X3DH Keypair.
-impl<SK, PK> SecretKey for KeyPair<SK, PK>
-where
-    SK: SecretKey<PK = PK>,
-    PK: PublicKey,
-{
-    type PK = PK;
-
-    /// Generate a `KeyPair`;
-    fn generate_with<R>(csprng: R) -> Self
+    pub fn generate_with<R>(csprng: R) -> Self
     where
         R: CryptoRng + RngCore,
     {
@@ -81,17 +55,40 @@ where
     }
 
     /// Get a `PublicKey` of `KeyPair`.
-    fn to_public(&self) -> SK::PK {
+    pub fn to_public(&self) -> SK::PK {
         self.public
+    }
+
+    /// Get a `PublicKey` of `KeyPair`.
+    pub fn to_secret(&self) -> &SK {
+        &self.secret
     }
 }
 
-impl<S, P> FromBytes for KeyPair<S, P>
+impl<SK> Zeroize for KeyPair<SK>
 where
-    S: SecretKey<PK = P> + FromBytes,
-    P: PublicKey + FromBytes,
+    SK: SecretKey,
 {
-    const LEN: usize = S::LEN + P::LEN;
+    fn zeroize(&mut self) {
+        self.secret.zeroize();
+    }
+}
+
+impl<SK> Drop for KeyPair<SK>
+where
+    SK: SecretKey,
+{
+    fn drop(&mut self) {
+        self.zeroize();
+    }
+}
+
+impl<SK> FromBytes for KeyPair<SK>
+where
+    SK: SecretKey + FromBytes,
+    SK::PK: FromBytes,
+{
+    const LEN: usize = SK::LEN + <<SK as SecretKey>::PK as FromBytes>::LEN;
 
     /// Deserialize a `IdentityKeyPair` from bytes.
     ///
@@ -104,24 +101,24 @@ where
     ///
     /// A `Result` whose okay value is a `Keypair` or whose error value
     /// is an `KeypairError` describing the error that occurred.
-    fn from_bytes(bytes: &[u8]) -> KeyResult<KeyPair<S, P>> {
+    fn from_bytes(bytes: &[u8]) -> KeyResult<KeyPair<SK>> {
         if bytes.len() != Self::LEN {
             return Err(KeypairError::BytesLengthError);
         }
 
-        let secret = S::from_bytes(&bytes[..S::LEN])?;
-        let public = P::from_bytes(&bytes[S::LEN..])?;
+        let secret = SK::from_bytes(&bytes[..SK::LEN])?;
+        let public = SK::PK::from_bytes(&bytes[SK::LEN..])?;
 
         Ok(KeyPair { secret, public })
     }
 }
 
-impl<SK, PK> ToVec for KeyPair<SK, PK>
+impl<SK> ToVec for KeyPair<SK>
 where
-    SK: SecretKey<PK = PK> + ToVec,
-    PK: PublicKey + ToVec,
+    SK: SecretKey + ToVec,
+    SK::PK: ToVec,
 {
-    const LEN: usize = SK::LEN + PK::LEN;
+    const LEN: usize = SK::LEN + <SK::PK as ToVec>::LEN;
 
     fn to_vec(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
@@ -133,14 +130,13 @@ where
     }
 }
 
-impl<SK, PK> Sign for KeyPair<SK, PK>
+impl<SK> Sign for KeyPair<SK>
 where
-    SK: SecretKey<PK = PK> + Sign,
-    PK: PublicKey,
+    SK: SecretKey + Sign,
 {
-    type S = <SK as Sign>::S;
+    type SIG = <SK as Sign>::SIG;
 
-    fn sign(&self, data: &[u8]) -> Self::S
+    fn sign(&self, data: &[u8]) -> Self::SIG
     where
         Self: Sized,
     {
@@ -148,35 +144,33 @@ where
     }
 }
 
-impl<SK, PK> DiffieHellman for KeyPair<SK, PK>
+impl<SK> DiffieHellman for KeyPair<SK>
 where
-    SK: SecretKey<PK = PK> + Sign + DiffieHellman,
-    PK: PublicKey,
+    SK: SecretKey + Sign + DiffieHellman,
 {
-    type S = <SK as DiffieHellman>::S;
-    type P = <SK as DiffieHellman>::P;
+    type SS = <SK as DiffieHellman>::SS;
+    type PK = <SK as DiffieHellman>::PK;
 
-    fn diffie_hellman(&self, peer_public: &Self::P) -> <SK as DiffieHellman>::S {
+    fn diffie_hellman(&self, peer_public: &Self::PK) -> <SK as DiffieHellman>::SS {
         self.secret.diffie_hellman(peer_public)
     }
 }
 
-impl<SK, PK> Verify for KeyPair<SK, PK>
+impl<SK> Verify for KeyPair<SK>
 where
-    SK: SecretKey<PK = PK>,
-    PK: PublicKey + Verify,
+    SK: SecretKey,
+    SK::PK: Verify,
 {
-    type S = <PK as Verify>::S;
+    type SIG = <SK::PK as Verify>::SIG;
 
-    fn verify(&self, data: &[u8], signature: &Self::S) -> crate::errors::SignatureResult<()> {
+    fn verify(&self, data: &[u8], signature: &Self::SIG) -> crate::errors::SignatureResult<()> {
         self.public.verify(data, signature)
     }
 }
 
-impl<S, P> Debug for KeyPair<S, P>
+impl<SK> Debug for KeyPair<SK>
 where
-    S: SecretKey,
-    P: PublicKey,
+    SK: SecretKey,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyPair")
@@ -186,13 +180,12 @@ where
     }
 }
 
-impl<S, P> Default for KeyPair<S, P>
+impl<SK> Default for KeyPair<SK>
 where
-    S: SecretKey<PK = P>,
-    P: PublicKey,
+    SK: SecretKey,
 {
     fn default() -> Self {
-        let secret: S = SecretKey::generate_with(OsRng);
+        let secret: SK = SecretKey::generate_with(OsRng);
         let public = secret.to_public();
 
         Self { secret, public }
@@ -200,13 +193,13 @@ where
 }
 
 /// Identity keypair type alias;
-pub type IdentityKeyPair<SK, PK> = KeyPair<SK, PK>;
+pub type IdentityKeyPair<SK> = KeyPair<SK>;
 
 /// Prekeypair type alias;
-pub type PreKeyPair<SK, PK> = KeyPair<SK, PK>;
+pub type PreKeyPair<SK> = KeyPair<SK>;
 
 /// One-time keypair type alias;
-pub type OnetimeKeyPair<SK, PK> = KeyPair<SK, PK>;
+pub type OnetimeKeyPair<SK> = KeyPair<SK>;
 
 #[cfg(test)]
 pub mod tests {
@@ -226,13 +219,24 @@ pub mod tests {
         where
             Self: Sized,
         {
-            let mut key: [u8; Self::LEN] = [0; Self::LEN];
+            let mut key: [u8; <Self as FromBytes>::LEN] = [0; <Self as FromBytes>::LEN];
 
-            for i in 0..Self::LEN {
+            for i in 0..<Self as FromBytes>::LEN {
                 key[i] = bytes[i];
             }
 
             Ok(Self(key))
+        }
+    }
+
+    impl ToVec for TestPublicKey {
+        const LEN: usize = 5;
+
+        fn to_vec(&self) -> Vec<u8>
+        where
+            Self: Sized,
+        {
+            Vec::from(self.0)
         }
     }
 
@@ -305,8 +309,7 @@ pub mod tests {
         }
     }
 
-    pub type TestIdentityKeyPair<TestSecretKey, TestPublicKey> =
-        KeyPair<TestSecretKey, TestPublicKey>;
+    pub type TestIdentityKeyPair<TestSecretKey> = KeyPair<TestSecretKey>;
 
-    pub type TestPreKeyPair<TestSecretKey, TestPublicKey> = KeyPair<TestSecretKey, TestPublicKey>;
+    pub type TestPreKeyPair<TestSecretKey> = KeyPair<TestSecretKey>;
 }

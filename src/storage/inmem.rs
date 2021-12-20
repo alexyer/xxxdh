@@ -4,8 +4,7 @@ use core::hash::Hash;
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    errors::StorageResult, IdentityKeyPair, OnetimeKeyPair, PreKeyPair, PublicKey, SecretKey,
-    Signature,
+    errors::StorageResult, IdentityKeyPair, OnetimeKeyPair, PreKeyPair, SecretKey, Signature,
 };
 
 use super::{
@@ -14,103 +13,98 @@ use super::{
 
 /// In-Memory key storage.
 #[derive(Debug)]
-pub struct Storage<SK, PK, SIG>
+pub struct Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
     SIG: Signature,
 {
-    identity_key_pair: IdentityKeyPair<SK, PK>,
-    known_identities: HashSet<PK>,
+    identity_key_pair: IdentityKeyPair<SK>,
+    known_identities: HashSet<SK::PK>,
 
-    prekey_pair: PreKeyPair<SK, PK>,
-    known_prekeys: HashSet<PK>,
+    prekey_pair: PreKeyPair<SK>,
+    known_prekeys: HashSet<SK::PK>,
 
-    signatures: HashMap<PK, SIG>,
+    signatures: HashMap<SK::PK, SIG>,
 
-    onetime_keys: HashMap<PK, OnetimeKeyPair<SK, PK>>,
+    onetime_keys: HashMap<SK::PK, OnetimeKeyPair<SK>>,
 }
 
-impl<SK, PK, SIG> IdentityKeyStorage<SK, PK> for Storage<SK, PK, SIG>
+impl<SK, SIG> IdentityKeyStorage<SK> for Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
+    SK::PK: Eq + Hash,
     SIG: Signature,
 {
-    fn get_identity_key_pair(&self) -> &IdentityKeyPair<SK, PK> {
+    fn get_identity_key_pair(&self) -> &IdentityKeyPair<SK> {
         &self.identity_key_pair
     }
 
-    fn save_identity(&mut self, identity: &PK) -> StorageResult<()> {
+    fn save_identity(&mut self, identity: &SK::PK) -> StorageResult<()> {
         self.known_identities.insert(identity.to_owned());
 
         Ok(())
     }
 
-    fn is_known_identity(&self, identity: &PK) -> StorageResult<bool> {
+    fn is_known_identity(&self, identity: &SK::PK) -> StorageResult<bool> {
         Ok(self.known_identities.contains(identity))
     }
 }
 
-impl<SK, PK, SIG> PreKeyStorage<SK, PK> for Storage<SK, PK, SIG>
+impl<SK, SIG> PreKeyStorage<SK> for Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
+    SK::PK: Eq + Hash,
     SIG: Signature,
 {
-    fn get_prekey_pair(&self) -> &PreKeyPair<SK, PK> {
+    fn get_prekey_pair(&self) -> &PreKeyPair<SK> {
         &self.prekey_pair
     }
 
-    fn save_prekey(&mut self, prekey: &PK) -> StorageResult<()> {
-        self.known_prekeys.insert(prekey.to_owned());
+    fn save_prekey(&mut self, key: &SK::PK) -> StorageResult<()> {
+        self.known_prekeys.insert(key.to_owned());
 
         Ok(())
     }
 
-    fn is_known_prekey(&self, prekey: &PK) -> StorageResult<bool> {
-        Ok(self.known_prekeys.contains(prekey))
+    fn is_known_prekey(&self, key: &SK::PK) -> StorageResult<bool> {
+        Ok(self.known_prekeys.contains(key))
     }
 }
 
-impl<SK, PK, SIG> SignatureStorage<PK, SIG> for Storage<SK, PK, SIG>
+impl<SK, SIG> SignatureStorage<SK::PK, SIG> for Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
+    SK::PK: Eq + Hash,
     SIG: Signature,
 {
-    fn get_signature(&self, key: &PK) -> StorageResult<Option<&SIG>> {
+    fn get_signature(&self, key: &SK::PK) -> StorageResult<Option<&SIG>> {
         Ok(self.signatures.get(key))
     }
 
-    fn save_signature(&mut self, key: PK, signature: SIG) -> StorageResult<()> {
+    fn save_signature(&mut self, key: SK::PK, signature: SIG) -> StorageResult<()> {
         self.signatures.insert(key, signature);
 
         Ok(())
     }
 }
 
-impl<SK, PK, SIG> OnetimeKeyStorage<SK, PK> for Storage<SK, PK, SIG>
+impl<SK, SIG> OnetimeKeyStorage<SK> for Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
+    SK::PK: Eq + Hash,
     SIG: Signature,
 {
-    fn get_onetime_keypair(&self, key: &PK) -> StorageResult<Option<&OnetimeKeyPair<SK, PK>>> {
+    fn get_onetime_keypair(&self, key: &SK::PK) -> StorageResult<Option<&OnetimeKeyPair<SK>>> {
         Ok(self.onetime_keys.get(key))
     }
 
-    fn save_onetime_keypair(
-        &mut self,
-        key: PK,
-        onetime_keypair: OnetimeKeyPair<SK, PK>,
-    ) -> StorageResult<()> {
-        self.onetime_keys.insert(key, onetime_keypair);
+    fn save_onetime_keypair(&mut self, keypair: OnetimeKeyPair<SK>) -> StorageResult<()> {
+        self.onetime_keys.insert(keypair.to_public(), keypair);
 
         Ok(())
     }
 
-    fn forget_onetime_keypair(&mut self, key: &PK) -> StorageResult<()> {
+    fn forget_onetime_keypair(&mut self, key: &SK::PK) -> StorageResult<()> {
         self.onetime_keys.remove(key);
 
         Ok(())
@@ -119,15 +113,19 @@ where
     fn is_onetime_keys_empty(&self) -> StorageResult<bool> {
         Ok(self.onetime_keys.is_empty())
     }
+
+    fn provide_ontime_key(&self) -> StorageResult<Option<&SK::PK>> {
+        Ok(self.onetime_keys.keys().next())
+    }
 }
 
-impl<SK, PK, SIG> ProtocolStorage<SK, PK, SIG> for Storage<SK, PK, SIG>
+impl<SK, SIG> ProtocolStorage<SK, SK::PK, SIG> for Storage<SK, SIG>
 where
     SK: SecretKey,
-    PK: PublicKey + Eq + Hash,
+    SK::PK: Eq + Hash,
     SIG: Signature,
 {
-    fn new(identity_key_pair: IdentityKeyPair<SK, PK>, prekey_pair: PreKeyPair<SK, PK>) -> Self {
+    fn new(identity_key_pair: IdentityKeyPair<SK>, prekey_pair: PreKeyPair<SK>) -> Self {
         Self {
             identity_key_pair,
             known_identities: HashSet::new(),
@@ -144,16 +142,13 @@ mod tests {
     use crate::keys::tests::{
         TestIdentityKeyPair, TestPreKeyPair, TestPublicKey, TestSecretKey, TestSignature,
     };
-    use crate::keys::SecretKey;
     use crate::traits::FromBytes;
 
     use super::*;
 
-    fn get_test_storage() -> Storage<TestSecretKey, TestPublicKey, TestSignature> {
-        let identity_keypair =
-            TestIdentityKeyPair::<TestSecretKey, TestPublicKey>::from_bytes(b"teststestp").unwrap();
-        let pre_keypair =
-            TestPreKeyPair::<TestSecretKey, TestPublicKey>::from_bytes(b"teststestp").unwrap();
+    fn get_test_storage() -> Storage<TestSecretKey, TestSignature> {
+        let identity_keypair = TestIdentityKeyPair::from_bytes(b"teststestp").unwrap();
+        let pre_keypair = TestPreKeyPair::from_bytes(b"teststestp").unwrap();
 
         Storage::new(identity_keypair, pre_keypair)
     }
@@ -162,12 +157,11 @@ mod tests {
     fn it_should_create_protocol_storage() {
         let public = TestPublicKey::from_bytes(b"testp").unwrap();
 
-        let identity_keypair =
-            TestIdentityKeyPair::<TestSecretKey, TestPublicKey>::from_bytes(b"teststestp").unwrap();
-        let pre_keypair =
-            TestPreKeyPair::<TestSecretKey, TestPublicKey>::from_bytes(b"teststestp").unwrap();
+        let identity_keypair = TestIdentityKeyPair::from_bytes(b"teststestp").unwrap();
+        let pre_keypair = TestPreKeyPair::from_bytes(b"teststestp").unwrap();
 
-        let storage: Storage<_, _, TestSignature> = Storage::new(identity_keypair, pre_keypair);
+        let storage: Storage<TestSecretKey, TestSignature> =
+            Storage::new(identity_keypair, pre_keypair);
 
         assert_eq!(storage.get_identity_key_pair().to_public(), public);
         assert_eq!(storage.get_identity_key_pair().to_public(), public);
@@ -217,14 +211,11 @@ mod tests {
     #[test]
     fn it_should_save_onetime_keypair() {
         let mut storage = get_test_storage();
-        let onetime_keypair =
-            TestPreKeyPair::<TestSecretKey, TestPublicKey>::from_bytes(b"teststestp").unwrap();
+        let onetime_keypair = TestPreKeyPair::from_bytes(b"teststestp").unwrap();
         let onetime_public = onetime_keypair.to_public();
 
         assert!(storage.is_onetime_keys_empty().unwrap());
-        storage
-            .save_onetime_keypair(onetime_public.clone(), onetime_keypair)
-            .unwrap();
+        storage.save_onetime_keypair(onetime_keypair).unwrap();
 
         assert!(!storage.is_onetime_keys_empty().unwrap());
 

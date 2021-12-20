@@ -2,21 +2,25 @@
 
 use std::fmt::Debug;
 
-use curve25519_dalek_ng::{
-    constants::RISTRETTO_BASEPOINT_TABLE, ristretto::RistrettoPoint, scalar::Scalar,
-};
+use curve25519_dalek_ng::{ristretto::RistrettoPoint, scalar::Scalar};
 use zeroize::Zeroize;
 
 use crate::{
     errors::{KeyResult, KeypairError, SignatureError, SignatureResult},
     key_exchange, keys,
     signature::{self, Sign},
-    traits,
+    traits::{self, FromBytes, ToVec},
 };
 
 #[derive(Zeroize, Debug)]
 #[zeroize(drop)]
 pub struct IdentitySecretKey(schnorrkel::SecretKey);
+
+impl From<EphemeralSecretKey> for IdentitySecretKey {
+    fn from(esk: EphemeralSecretKey) -> Self {
+        Self::from_bytes(&esk.to_vec()).unwrap()
+    }
+}
 
 impl keys::SecretKey for IdentitySecretKey {
     type PK = IdentityPublicKey;
@@ -88,9 +92,9 @@ impl traits::ToVec for Signature {
 }
 
 impl<'a> Sign for IdentitySecretKey {
-    type S = Signature;
+    type SIG = Signature;
 
-    fn sign(&self, data: &[u8]) -> Self::S
+    fn sign(&self, data: &[u8]) -> Self::SIG
     where
         Self: Sized,
     {
@@ -99,10 +103,10 @@ impl<'a> Sign for IdentitySecretKey {
 }
 
 impl key_exchange::DiffieHellman for IdentitySecretKey {
-    type S = SharedSecret;
-    type P = IdentityPublicKey;
+    type SS = SharedSecret;
+    type PK = IdentityPublicKey;
 
-    fn diffie_hellman(&self, peer_public: &Self::P) -> Self::S {
+    fn diffie_hellman(&self, peer_public: &Self::PK) -> Self::SS {
         let mut secret_bytes: [u8; 32] = [0; 32];
 
         secret_bytes.copy_from_slice(&self.0.to_bytes()[..32]);
@@ -113,7 +117,7 @@ impl key_exchange::DiffieHellman for IdentitySecretKey {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct IdentityPublicKey(schnorrkel::PublicKey);
 
 impl keys::PublicKey for IdentityPublicKey {}
@@ -134,14 +138,13 @@ impl traits::FromBytes for IdentityPublicKey {
 
 impl From<EphemeralPublicKey> for IdentityPublicKey {
     fn from(epk: EphemeralPublicKey) -> Self {
-        // FIXME(alexyer): unwrap
-        Self(schnorrkel::PublicKey::from_compressed(epk.0.compress()).unwrap())
+        Self(epk.0)
     }
 }
 
 impl Into<EphemeralPublicKey> for &IdentityPublicKey {
     fn into(self) -> EphemeralPublicKey {
-        EphemeralPublicKey(RistrettoPoint::from(*self.0.as_point()))
+        EphemeralPublicKey(self.0)
     }
 }
 
@@ -157,9 +160,9 @@ impl traits::ToVec for IdentityPublicKey {
 }
 
 impl signature::Verify for IdentityPublicKey {
-    type S = Signature;
+    type SIG = Signature;
 
-    fn verify(&self, data: &[u8], signature: &Self::S) -> SignatureResult<()> {
+    fn verify(&self, data: &[u8], signature: &Self::SIG) -> SignatureResult<()> {
         match self.0.verify_simple(b"X3DH", data, &signature.0) {
             Ok(_) => Ok(()),
             Err(schnorrkel::SignatureError::EquationFalse) => Err(SignatureError::EquationFalse),
@@ -184,47 +187,52 @@ impl Debug for IdentityPublicKey {
     }
 }
 
-pub type IdentityKeyPair = keys::KeyPair<IdentitySecretKey, IdentityPublicKey>;
+pub type IdentityKeyPair = keys::KeyPair<IdentitySecretKey>;
+pub type PreKeyPair = keys::KeyPair<IdentitySecretKey>;
+pub type OnetimeKeyPair = keys::KeyPair<IdentitySecretKey>;
 
 #[derive(Zeroize, Debug)]
 #[zeroize(drop)]
 /// A Diffie-Hellman secret key used to derive a shared secret when
 /// combined with a public key, that only exists for a short time.
-pub struct EphemeralSecretKey(Scalar);
+pub struct EphemeralSecretKey(schnorrkel::SecretKey);
 
 impl keys::SecretKey for EphemeralSecretKey {
     type PK = EphemeralPublicKey;
 
-    fn generate_with<R: rand_core::CryptoRng + rand_core::RngCore>(mut csprng: R) -> Self
+    fn generate_with<R: rand_core::CryptoRng + rand_core::RngCore>(csprng: R) -> Self
     where
         Self: Sized,
     {
-        Self(Scalar::random(&mut csprng))
+        Self(schnorrkel::SecretKey::generate_with(csprng))
     }
 
     fn to_public(&self) -> Self::PK {
-        EphemeralPublicKey(&self.0 * &RISTRETTO_BASEPOINT_TABLE)
+        EphemeralPublicKey(self.0.to_public())
     }
 }
 
 impl key_exchange::DiffieHellman for EphemeralSecretKey {
-    type S = SharedSecret;
-    type P = EphemeralPublicKey;
+    type SS = SharedSecret;
+    type PK = EphemeralPublicKey;
 
-    fn diffie_hellman(&self, peer_public: &Self::P) -> Self::S {
-        SharedSecret(self.0 * peer_public.0)
+    fn diffie_hellman(&self, peer_public: &Self::PK) -> Self::SS {
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&self.0.to_ed25519_bytes()[..32]);
+
+        SharedSecret(Scalar::from_bits(bytes) * peer_public.0.as_point())
     }
 }
 
 /// The public key derived from an ephemeral secret key.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct EphemeralPublicKey(RistrettoPoint);
+pub struct EphemeralPublicKey(schnorrkel::PublicKey);
 
 impl keys::PublicKey for EphemeralPublicKey {}
 
 impl From<IdentityPublicKey> for EphemeralPublicKey {
     fn from(ik: IdentityPublicKey) -> Self {
-        Self(RistrettoPoint::from(*ik.0.as_point()))
+        Self(ik.0)
     }
 }
 
@@ -235,7 +243,7 @@ impl traits::ToVec for EphemeralPublicKey {
     where
         Self: Sized,
     {
-        Vec::from(self.0.compress().to_bytes())
+        Vec::from(self.0.to_bytes())
     }
 }
 

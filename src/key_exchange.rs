@@ -3,8 +3,8 @@
 use crate::keys::{PublicKey, SharedSecretKey};
 
 pub trait DiffieHellman {
-    type S: SharedSecretKey;
-    type P: PublicKey;
+    type SS: SharedSecretKey;
+    type PK: PublicKey;
 
-    fn diffie_hellman(&self, peer_public: &Self::P) -> Self::S;
+    fn diffie_hellman(&self, peer_public: &Self::PK) -> Self::SS;
 }
