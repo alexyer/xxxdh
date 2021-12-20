@@ -18,7 +18,7 @@ pub trait PublicKey: Debug + Copy + PartialEq {}
 
 /// A secret key for use in X3DH protocol.
 pub trait SecretKey: Zeroize + Debug {
-    type P: PublicKey;
+    type PK: PublicKey;
 
     /// Generate an "unbiased" `SecretKey` directly from a user
     /// suplied `csprng` uniformly.
@@ -27,34 +27,34 @@ pub trait SecretKey: Zeroize + Debug {
         Self: Sized;
 
     /// Derive the `PublicKey` corresponding to this `SecretKey`.
-    fn to_public(&self) -> Self::P;
+    fn to_public(&self) -> Self::PK;
 }
 
 pub trait SharedSecretKey {}
 
-pub struct KeyPair<S, P>
+pub struct KeyPair<SK, PK>
 where
-    S: SecretKey,
-    P: PublicKey,
+    SK: SecretKey,
+    PK: PublicKey,
 {
-    secret: S,
-    public: P,
+    secret: SK,
+    public: PK,
 }
 
-impl<S, P> Zeroize for KeyPair<S, P>
+impl<SK, PK> Zeroize for KeyPair<SK, PK>
 where
-    S: SecretKey,
-    P: PublicKey,
+    SK: SecretKey,
+    PK: PublicKey,
 {
     fn zeroize(&mut self) {
         self.secret.zeroize();
     }
 }
 
-impl<S, P> Drop for KeyPair<S, P>
+impl<SK, PK> Drop for KeyPair<SK, PK>
 where
-    S: SecretKey,
-    P: PublicKey,
+    SK: SecretKey,
+    PK: PublicKey,
 {
     fn drop(&mut self) {
         self.zeroize();
@@ -62,33 +62,33 @@ where
 }
 
 /// X3DH Keypair.
-impl<S, P> SecretKey for KeyPair<S, P>
+impl<SK, PK> SecretKey for KeyPair<SK, PK>
 where
-    S: SecretKey<P = P>,
-    P: PublicKey,
+    SK: SecretKey<PK = PK>,
+    PK: PublicKey,
 {
-    type P = P;
+    type PK = PK;
 
     /// Generate a `KeyPair`;
     fn generate_with<R>(csprng: R) -> Self
     where
         R: CryptoRng + RngCore,
     {
-        let secret: S = S::generate_with(csprng);
+        let secret: SK = SK::generate_with(csprng);
         let public = secret.to_public();
 
         KeyPair { secret, public }
     }
 
     /// Get a `PublicKey` of `KeyPair`.
-    fn to_public(&self) -> S::P {
+    fn to_public(&self) -> SK::PK {
         self.public
     }
 }
 
 impl<S, P> FromBytes for KeyPair<S, P>
 where
-    S: SecretKey<P = P> + FromBytes,
+    S: SecretKey<PK = P> + FromBytes,
     P: PublicKey + FromBytes,
 {
     const LEN: usize = S::LEN + P::LEN;
@@ -116,12 +116,12 @@ where
     }
 }
 
-impl<S, P> ToVec for KeyPair<S, P>
+impl<SK, PK> ToVec for KeyPair<SK, PK>
 where
-    S: SecretKey<P = P> + ToVec,
-    P: PublicKey + ToVec,
+    SK: SecretKey<PK = PK> + ToVec,
+    PK: PublicKey + ToVec,
 {
-    const LEN: usize = S::LEN + P::LEN;
+    const LEN: usize = SK::LEN + PK::LEN;
 
     fn to_vec(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
@@ -133,12 +133,12 @@ where
     }
 }
 
-impl<S, P> Sign for KeyPair<S, P>
+impl<SK, PK> Sign for KeyPair<SK, PK>
 where
-    S: SecretKey<P = P> + Sign,
-    P: PublicKey,
+    SK: SecretKey<PK = PK> + Sign,
+    PK: PublicKey,
 {
-    type S = <S as Sign>::S;
+    type S = <SK as Sign>::S;
 
     fn sign(&self, data: &[u8]) -> Self::S
     where
@@ -148,25 +148,25 @@ where
     }
 }
 
-impl<S, P> DiffieHellman for KeyPair<S, P>
+impl<SK, PK> DiffieHellman for KeyPair<SK, PK>
 where
-    S: SecretKey<P = P> + Sign + DiffieHellman,
-    P: PublicKey,
+    SK: SecretKey<PK = PK> + Sign + DiffieHellman,
+    PK: PublicKey,
 {
-    type S = <S as DiffieHellman>::S;
-    type P = <S as DiffieHellman>::P;
+    type S = <SK as DiffieHellman>::S;
+    type P = <SK as DiffieHellman>::P;
 
-    fn diffie_hellman(&self, peer_public: &Self::P) -> <S as DiffieHellman>::S {
+    fn diffie_hellman(&self, peer_public: &Self::P) -> <SK as DiffieHellman>::S {
         self.secret.diffie_hellman(peer_public)
     }
 }
 
-impl<'a, S, P> Verify for KeyPair<S, P>
+impl<SK, PK> Verify for KeyPair<SK, PK>
 where
-    S: SecretKey<P = P>,
-    P: PublicKey + Verify,
+    SK: SecretKey<PK = PK>,
+    PK: PublicKey + Verify,
 {
-    type S = <P as Verify>::S;
+    type S = <PK as Verify>::S;
 
     fn verify(&self, data: &[u8], signature: &Self::S) -> crate::errors::SignatureResult<()> {
         self.public.verify(data, signature)
@@ -188,7 +188,7 @@ where
 
 impl<S, P> Default for KeyPair<S, P>
 where
-    S: SecretKey<P = P>,
+    S: SecretKey<PK = P>,
     P: PublicKey,
 {
     fn default() -> Self {
@@ -198,3 +198,5 @@ where
         Self { secret, public }
     }
 }
+
+// pub type IdentityKey = KeyPair<S, P>;

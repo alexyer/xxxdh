@@ -19,7 +19,7 @@ use crate::{
 pub struct IdentitySecretKey(schnorrkel::SecretKey);
 
 impl keys::SecretKey for IdentitySecretKey {
-    type P = IdentityPublicKey;
+    type PK = IdentityPublicKey;
 
     fn generate_with<R: rand_core::CryptoRng + rand_core::RngCore>(csprng: R) -> Self
     where
@@ -28,7 +28,7 @@ impl keys::SecretKey for IdentitySecretKey {
         Self(schnorrkel::SecretKey::generate_with(csprng))
     }
 
-    fn to_public(&self) -> Self::P {
+    fn to_public(&self) -> Self::PK {
         IdentityPublicKey(self.0.to_public())
     }
 }
@@ -193,7 +193,7 @@ pub type IdentityKey = keys::KeyPair<IdentitySecretKey, IdentityPublicKey>;
 pub struct EphemeralSecretKey(Scalar);
 
 impl keys::SecretKey for EphemeralSecretKey {
-    type P = EphemeralPublicKey;
+    type PK = EphemeralPublicKey;
 
     fn generate_with<R: rand_core::CryptoRng + rand_core::RngCore>(mut csprng: R) -> Self
     where
@@ -202,7 +202,7 @@ impl keys::SecretKey for EphemeralSecretKey {
         Self(Scalar::random(&mut csprng))
     }
 
-    fn to_public(&self) -> Self::P {
+    fn to_public(&self) -> Self::PK {
         EphemeralPublicKey(&self.0 * &RISTRETTO_BASEPOINT_TABLE)
     }
 }

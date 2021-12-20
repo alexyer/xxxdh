@@ -3,6 +3,7 @@ mod errors;
 mod kdf;
 mod key_exchange;
 mod keys;
+mod protocol;
 mod signature;
 mod traits;
 
@@ -68,12 +69,12 @@ where
 
 impl<'s, SK, PK, ESK, EPK, H, CIPHER, S> KeysBundle<SK, PK, ESK, EPK, H, CIPHER, S>
 where
-    SK: SecretKey<P = PK> + DiffieHellman<P = PK>,
+    SK: SecretKey<PK = PK> + DiffieHellman<P = PK>,
     PK: PublicKey + ToVec + Verify<S = S> + From<EPK>,
-    ESK: SecretKey + DiffieHellman + SecretKey<P = EPK>,
+    ESK: SecretKey + DiffieHellman + SecretKey<PK = EPK>,
     EPK: PublicKey + ToVec,
     H: Kdf,
-    KeyPair<SK, PK>: Sign<S = S> + SecretKey<P = PK> + DiffieHellman<P = PK>,
+    KeyPair<SK, PK>: Sign<S = S> + SecretKey<PK = PK> + DiffieHellman<P = PK>,
     <ESK as DiffieHellman>::S: ToVec,
     <ESK as DiffieHellman>::P: From<PK>,
     <KeyPair<SK, PK> as DiffieHellman>::S: ToVec,
