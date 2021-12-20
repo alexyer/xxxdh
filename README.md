@@ -1,3 +1,6 @@
+[![TestStatus](https://github.com/alexyer/xxxdh/actions/workflows/rust_test.yml/badge.svg?event=push)](https://github.com/alexyer/xxxdh/actions)
+[![Crate](https://img.shields.io/crates/v/xxxdh.svg)](https://crates.io/crates/xxxdh)
+[![API](https://docs.rs/xxxdh/badge.svg)](https://docs.rs/xxxdh)
 # XXXDH
 Implementation of the Extended Triple Diffie-Hellman key exchange protocol written in Rust.
 
