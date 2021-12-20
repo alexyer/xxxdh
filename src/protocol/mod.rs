@@ -2,28 +2,31 @@
 
 use std::marker::PhantomData;
 
-use crate::{storage::IdentityKeyStorage, KeyPair, PublicKey, SecretKey};
+use crate::{storage::ProtocolStorage, IdentityKeyPair, PreKeyPair, PublicKey, SecretKey};
 
-pub struct Protocol<SK, PK, IKS>
+pub struct Protocol<SK, PK, S>
 where
     SK: SecretKey,
     PK: PublicKey,
-    IKS: IdentityKeyStorage<SK, PK>,
+    S: ProtocolStorage<SK, PK>,
 {
-    identity_key_storage: IKS,
+    storage: S,
     _sk: PhantomData<SK>,
     _pk: PhantomData<PK>,
 }
 
-impl<SK, PK, IKS> Protocol<SK, PK, IKS>
+impl<SK, PK, S> Protocol<SK, PK, S>
 where
     SK: SecretKey,
     PK: PublicKey,
-    IKS: IdentityKeyStorage<SK, PK>,
+    S: ProtocolStorage<SK, PK>,
 {
-    pub fn new(identity_key_pair: KeyPair<SK, PK>) -> Self {
+    pub fn new(
+        identity_keypair: IdentityKeyPair<SK, PK>,
+        prekey_keypair: PreKeyPair<SK, PK>,
+    ) -> Self {
         Self {
-            identity_key_storage: IKS::new(identity_key_pair),
+            storage: S::new(identity_keypair, prekey_keypair),
             _sk: PhantomData::default(),
             _pk: PhantomData::default(),
         }

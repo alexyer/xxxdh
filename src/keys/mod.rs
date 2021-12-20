@@ -199,4 +199,76 @@ where
     }
 }
 
-// pub type IdentityKey = KeyPair<S, P>;
+/// Identity keypair type alias;
+pub type IdentityKeyPair<SK, PK> = KeyPair<SK, PK>;
+
+/// Prekeypair type alias;
+pub type PreKeyPair<SK, PK> = KeyPair<SK, PK>;
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
+    pub struct TestPublicKey([u8; 5]);
+
+    impl PublicKey for TestPublicKey {}
+
+    impl FromBytes for TestPublicKey {
+        const LEN: usize = 5;
+
+        fn from_bytes(bytes: &[u8]) -> KeyResult<Self>
+        where
+            Self: Sized,
+        {
+            let mut key: [u8; Self::LEN] = [0; Self::LEN];
+
+            for i in 0..Self::LEN {
+                key[i] = bytes[i];
+            }
+
+            Ok(Self(key))
+        }
+    }
+
+    #[derive(Debug, Zeroize)]
+    #[zeroize(drop)]
+    pub struct TestSecretKey([u8; 5]);
+
+    impl SecretKey for TestSecretKey {
+        type PK = TestPublicKey;
+
+        fn generate_with<R: CryptoRng + RngCore>(_csprng: R) -> Self
+        where
+            Self: Sized,
+        {
+            todo!()
+        }
+
+        fn to_public(&self) -> Self::PK {
+            todo!()
+        }
+    }
+
+    impl FromBytes for TestSecretKey {
+        const LEN: usize = 5;
+
+        fn from_bytes(bytes: &[u8]) -> KeyResult<Self>
+        where
+            Self: Sized,
+        {
+            let mut key: [u8; Self::LEN] = [0; Self::LEN];
+
+            for i in 0..Self::LEN {
+                key[i] = bytes[i];
+            }
+
+            Ok(Self(key))
+        }
+    }
+
+    pub type TestIdentityKeyPair<TestSecretKey, TestPublicKey> =
+        KeyPair<TestSecretKey, TestPublicKey>;
+
+    pub type TestPreKeyPair<TestSecretKey, TestPublicKey> = KeyPair<TestSecretKey, TestPublicKey>;
+}

@@ -47,6 +47,7 @@ pub enum KdfError {
 pub struct AeadError;
 
 /// Storage related errors
+#[derive(Debug)]
 pub enum StorageError {
     /// Something went wrong.
     UnknownError,

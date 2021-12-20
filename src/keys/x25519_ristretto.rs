@@ -184,7 +184,7 @@ impl Debug for IdentityPublicKey {
     }
 }
 
-pub type IdentityKey = keys::KeyPair<IdentitySecretKey, IdentityPublicKey>;
+pub type IdentityKeyPair = keys::KeyPair<IdentitySecretKey, IdentityPublicKey>;
 
 #[derive(Zeroize, Debug)]
 #[zeroize(drop)]
@@ -281,7 +281,7 @@ mod tests {
     use crate::keys::SecretKey;
     use crate::signature::{self, Sign, Verify};
     use crate::traits::{FromBytes, ToVec};
-    use crate::x25519_ristretto::IdentityKey;
+    use crate::x25519_ristretto::IdentityKeyPair;
     use rand_core::OsRng;
 
     #[test]
@@ -295,7 +295,7 @@ mod tests {
             176, 206, 32,
         ];
 
-        assert!(IdentityKey::from_bytes(&bytes).is_ok());
+        assert!(IdentityKeyPair::from_bytes(&bytes).is_ok());
     }
 
     #[test]
@@ -309,15 +309,18 @@ mod tests {
             176, 206, 32,
         ];
 
-        assert_eq!(&IdentityKey::from_bytes(&bytes).unwrap().to_vec(), &bytes);
+        assert_eq!(
+            &IdentityKeyPair::from_bytes(&bytes).unwrap().to_vec(),
+            &bytes
+        );
     }
 
     #[test]
     fn identity_key_should_verify_signature() {
         const MSG: &[u8] = b"sw0rdfish";
 
-        let alice_keypair = IdentityKey::default();
-        let bob_keypair = IdentityKey::default();
+        let alice_keypair = IdentityKeyPair::default();
+        let bob_keypair = IdentityKeyPair::default();
         let alice_public = alice_keypair.to_public();
 
         let signature = alice_keypair.sign(MSG);

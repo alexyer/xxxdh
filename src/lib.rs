@@ -262,8 +262,8 @@ mod tests {
 
     #[test]
     fn it_should_exchange_keys() {
-        let alice_identity = x25519_ristretto::IdentityKey::default();
-        let bob_identity = x25519_ristretto::IdentityKey::default();
+        let alice_identity = x25519_ristretto::IdentityKeyPair::default();
+        let bob_identity = x25519_ristretto::IdentityKeyPair::default();
 
         let alice_bundle: KeysBundle<
             x25519_ristretto::IdentitySecretKey,
