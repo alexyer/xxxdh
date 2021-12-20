@@ -205,6 +205,9 @@ pub type IdentityKeyPair<SK, PK> = KeyPair<SK, PK>;
 /// Prekeypair type alias;
 pub type PreKeyPair<SK, PK> = KeyPair<SK, PK>;
 
+/// One-time keypair type alias;
+pub type OnetimeKeyPair<SK, PK> = KeyPair<SK, PK>;
+
 #[cfg(test)]
 pub mod tests {
     use crate::Signature;

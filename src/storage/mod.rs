@@ -1,7 +1,10 @@
 //! Key storage.
 mod inmem;
 
-use crate::{errors::StorageResult, IdentityKeyPair, PreKeyPair, PublicKey, SecretKey, Signature};
+use crate::{
+    errors::StorageResult, IdentityKeyPair, OnetimeKeyPair, PreKeyPair, PublicKey, SecretKey,
+    Signature,
+};
 
 /// Identity keys storage.
 pub trait IdentityKeyStorage<SK, PK>
@@ -45,11 +48,37 @@ where
     fn get_signature(&self, key: &PK) -> StorageResult<Option<&SIG>>;
 
     /// Save a signature.
-    fn save_signautre(&mut self, key: PK, signature: SIG) -> StorageResult<()>;
+    fn save_signature(&mut self, key: PK, signature: SIG) -> StorageResult<()>;
+}
+
+///  One-time keys storage.
+pub trait OnetimeKeyStorage<SK, PK>
+where
+    SK: SecretKey,
+    PK: PublicKey,
+{
+    /// Get a `OnetimeKeyPair`.
+    fn get_onetime_keypair(&self, key: &PK) -> StorageResult<Option<&OnetimeKeyPair<SK, PK>>>;
+
+    /// Save a `OnetimeKeyPair`.
+    fn save_onetime_keypair(
+        &mut self,
+        key: PK,
+        onetime_keypair: OnetimeKeyPair<SK, PK>,
+    ) -> StorageResult<()>;
+
+    /// Forget a `OnetimeKeyPair`.
+    fn forget_onetime_keypair(&mut self, key: &PK) -> StorageResult<()>;
+
+    /// Check if there are keys available.
+    fn is_onetime_keys_empty(&self) -> StorageResult<bool>;
 }
 
 pub trait ProtocolStorage<SK, PK, S>:
-    IdentityKeyStorage<SK, PK> + PreKeyStorage<SK, PK> + SignatureStorage<PK, S>
+    IdentityKeyStorage<SK, PK>
+    + PreKeyStorage<SK, PK>
+    + SignatureStorage<PK, S>
+    + OnetimeKeyStorage<SK, PK>
 where
     SK: SecretKey,
     PK: PublicKey,
