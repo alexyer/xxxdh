@@ -1,7 +1,7 @@
 //! Key storage.
 mod inmem;
 
-use crate::{errors::StorageResult, IdentityKeyPair, PreKeyPair, PublicKey, SecretKey};
+use crate::{errors::StorageResult, IdentityKeyPair, PreKeyPair, PublicKey, SecretKey, Signature};
 
 /// Identity keys storage.
 pub trait IdentityKeyStorage<SK, PK>
@@ -35,10 +35,25 @@ where
     fn is_known_prekey(&self, prekey: &PK) -> StorageResult<bool>;
 }
 
-pub trait ProtocolStorage<SK, PK>: IdentityKeyStorage<SK, PK> + PreKeyStorage<SK, PK>
+///  Prekeys signature storage.
+pub trait SignatureStorage<PK, SIG>
+where
+    PK: PublicKey,
+    SIG: Signature,
+{
+    /// Get a signature for a key.
+    fn get_signature(&self, key: &PK) -> StorageResult<Option<&SIG>>;
+
+    /// Save a signature.
+    fn save_signautre(&mut self, key: PK, signature: SIG) -> StorageResult<()>;
+}
+
+pub trait ProtocolStorage<SK, PK, S>:
+    IdentityKeyStorage<SK, PK> + PreKeyStorage<SK, PK> + SignatureStorage<PK, S>
 where
     SK: SecretKey,
     PK: PublicKey,
+    S: Signature,
 {
     fn new(identity_keypair: IdentityKeyPair<SK, PK>, prekey_keypair: PreKeyPair<SK, PK>) -> Self;
 }

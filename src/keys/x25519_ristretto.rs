@@ -58,7 +58,7 @@ impl traits::ToVec for IdentitySecretKey {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Signature(schnorrkel::Signature);
 impl signature::Signature for Signature {}
 

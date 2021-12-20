@@ -5,7 +5,7 @@ use crate::{
     traits::{FromBytes, ToVec},
 };
 
-pub trait Signature: FromBytes + ToVec + Copy + Clone {}
+pub trait Signature: FromBytes + ToVec + Copy + Clone + PartialEq {}
 
 /// Sign a message.
 pub trait Sign {
