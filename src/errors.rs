@@ -46,6 +46,12 @@ pub enum KdfError {
 /// AEAD algorithm error.
 pub struct AeadError;
 
+/// Storage related errors
+pub enum StorageError {
+    /// Something went wrong.
+    UnknownError,
+}
+
 /// `Result` specialized to this crate for convenience. Used for keypair related results.
 pub type KeyResult<T> = Result<T, KeypairError>;
 
@@ -60,3 +66,6 @@ pub type KdfResult<T> = Result<T, KdfError>;
 
 /// `Result` specialized to this crate for convenience. Used for AEAD related results.
 pub type AeadResult<T> = Result<T, AeadError>;
+
+/// `Result` specialized to this crate for convenience. Used for storage related results.
+pub type StorageResult<T> = Result<T, StorageError>;

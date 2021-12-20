@@ -1,21 +1,31 @@
 //! X3DH protocol implementation.
 
-use crate::{KeyPair, PublicKey, SecretKey};
+use std::marker::PhantomData;
 
-pub struct Protocol<SK, PK>
+use crate::{storage::IdentityKeyStorage, KeyPair, PublicKey, SecretKey};
+
+pub struct Protocol<SK, PK, IKS>
 where
     SK: SecretKey,
     PK: PublicKey,
+    IKS: IdentityKeyStorage<SK, PK>,
 {
-    identity: KeyPair<SK, PK>,
+    identity_key_storage: IKS,
+    _sk: PhantomData<SK>,
+    _pk: PhantomData<PK>,
 }
 
-impl<SK, PK> Protocol<SK, PK>
+impl<SK, PK, IKS> Protocol<SK, PK, IKS>
 where
     SK: SecretKey,
     PK: PublicKey,
+    IKS: IdentityKeyStorage<SK, PK>,
 {
-    pub fn new(identity: KeyPair<SK, PK>) -> Self {
-        Self { identity }
+    pub fn new(identity_key_pair: KeyPair<SK, PK>) -> Self {
+        Self {
+            identity_key_storage: IKS::new(identity_key_pair),
+            _sk: PhantomData::default(),
+            _pk: PhantomData::default(),
+        }
     }
 }

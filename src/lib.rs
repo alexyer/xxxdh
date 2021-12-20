@@ -5,6 +5,7 @@ mod key_exchange;
 mod keys;
 mod protocol;
 mod signature;
+mod storage;
 mod traits;
 
 use std::marker::PhantomData;
