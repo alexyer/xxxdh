@@ -178,7 +178,7 @@ where
 #[cfg(all(
     test,
     feature = "x25519-ristretto",
-    feature = "sha256",
+    feature = "hkdf-sha256",
     feature = "aead-aes-gcm"
 ))]
 mod tests {

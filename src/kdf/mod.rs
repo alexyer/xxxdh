@@ -6,8 +6,8 @@ pub trait Kdf {
     fn expand(&self, info: &[u8], okm: &mut [u8]) -> KdfResult<()>;
 }
 
-#[cfg(feature = "sha256")]
+#[cfg(feature = "hkdf-sha256")]
 pub mod sha256;
 
-#[cfg(feature = "sha512")]
+#[cfg(feature = "hkdf-sha512")]
 pub mod sha512;
