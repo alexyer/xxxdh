@@ -1,10 +1,13 @@
 //! Key storage.
 pub mod inmem;
 
-use crate::{
-    errors::StorageResult, IdentityKeyPair, OnetimeKeyPair, PreKeyPair, PublicKey, SecretKey,
-    Signature,
+use cryptimitives::key::KeyPair;
+use cryptraits::{
+    key::{PublicKey, SecretKey},
+    signature::Signature,
 };
+
+use crate::errors::StorageResult;
 
 /// Identity keys storage.
 pub trait IdentityKeyStorage<SK>
@@ -12,7 +15,7 @@ where
     SK: SecretKey,
 {
     /// Get an identity `IdentityKeyPair`.
-    fn get_identity_key_pair(&self) -> &IdentityKeyPair<SK>;
+    fn get_identity_key_pair(&self) -> &KeyPair<SK>;
 
     /// Save a known identity.
     fn save_identity(&mut self, identity: &SK::PK) -> StorageResult<()>;
@@ -27,7 +30,7 @@ where
     SK: SecretKey,
 {
     /// Get a prekey `PreKeyPair`.
-    fn get_prekey_pair(&self) -> &PreKeyPair<SK>;
+    fn get_prekey_pair(&self) -> &KeyPair<SK>;
 
     /// Save a known identity.
     fn save_prekey(&mut self, key: &SK::PK) -> StorageResult<()>;
@@ -55,10 +58,10 @@ where
     SK: SecretKey,
 {
     /// Get a `OnetimeKeyPair`.
-    fn get_onetime_keypair(&self, key: &SK::PK) -> StorageResult<Option<&OnetimeKeyPair<SK>>>;
+    fn get_onetime_keypair(&self, key: &SK::PK) -> StorageResult<Option<&KeyPair<SK>>>;
 
     /// Save a `OnetimeKeyPair`.
-    fn save_onetime_keypair(&mut self, keypair: OnetimeKeyPair<SK>) -> StorageResult<()>;
+    fn save_onetime_keypair(&mut self, keypair: KeyPair<SK>) -> StorageResult<()>;
 
     /// Forget a `OnetimeKeyPair`.
     fn forget_onetime_keypair(&mut self, key: &SK::PK) -> StorageResult<()>;
@@ -77,5 +80,5 @@ where
     PK: PublicKey,
     S: Signature,
 {
-    fn new(identity_keypair: IdentityKeyPair<SK>, prekey_keypair: PreKeyPair<SK>) -> Self;
+    fn new(identity_keypair: KeyPair<SK>, prekey_keypair: KeyPair<SK>) -> Self;
 }

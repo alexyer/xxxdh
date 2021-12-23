@@ -9,41 +9,44 @@ Implementation is close to the [Signal Spec](https://signal.org/docs/specificati
 ## Usage
 
 ```rust
+//! Basic example.
+
+use cryptimitives::{aead, kdf::sha256, key::x25519_ristretto};
+use cryptraits::{convert::ToVec, key::KeyPair, signature::Sign};
 use rand_core::OsRng;
 use xxxdh::{
-    aes_gcm, inmem, sha256, x25519_ristretto, IdentityKeyStorage, OnetimeKeyStorage, PreKeyStorage,
-    Protocol, Sign, SignatureStorage, ToVec,
+    inmem, IdentityKeyStorage, OnetimeKeyStorage, PreKeyStorage, Protocol, SignatureStorage,
 };
 
 fn main() {
     // Instantiate Alice protocol.
 
-    let alice_identity = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
-    let alice_prekey = x25519_ristretto::PreKeyPair::generate_with(OsRng);
+    let alice_identity = x25519_ristretto::KeyPair::generate_with(OsRng);
+    let alice_prekey = x25519_ristretto::KeyPair::generate_with(OsRng);
     let alice_signature = alice_identity.sign(&alice_prekey.to_public().to_vec());
     let mut alice_protocol = Protocol::<
-        x25519_ristretto::IdentitySecretKey,
+        x25519_ristretto::SecretKey,
         x25519_ristretto::EphemeralSecretKey,
         x25519_ristretto::Signature,
         inmem::Storage<_, _>,
         sha256::Kdf,
-        aes_gcm::Aead,
+        aead::aes_gcm::Aes256Gcm,
     >::new(alice_identity, alice_prekey, alice_signature, None);
 
     // Instantiate Bob protocol.
 
-    let onetime_keypair = x25519_ristretto::OnetimeKeyPair::generate_with(OsRng);
+    let onetime_keypair = x25519_ristretto::KeyPair::generate_with(OsRng);
 
-    let bob_identity = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
-    let bob_prekey = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
+    let bob_identity = x25519_ristretto::KeyPair::generate_with(OsRng);
+    let bob_prekey = x25519_ristretto::KeyPair::generate_with(OsRng);
     let bob_signature = bob_identity.sign(&bob_prekey.to_public().to_vec());
     let mut bob_protocol = Protocol::<
-        x25519_ristretto::IdentitySecretKey,
+        x25519_ristretto::SecretKey,
         x25519_ristretto::EphemeralSecretKey,
         x25519_ristretto::Signature,
         inmem::Storage<_, _>,
         sha256::Kdf,
-        aes_gcm::Aead,
+        aead::aes_gcm::Aes256Gcm,
     >::new(
         bob_identity,
         bob_prekey,
@@ -82,4 +85,5 @@ fn main() {
     println!("Alice shared secret: {:?}", alice_sk);
     println!("Bob shared secret: {:?}", bob_sk);
 }
+
 ```

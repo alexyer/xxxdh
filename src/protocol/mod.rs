@@ -2,13 +2,20 @@
 
 use std::marker::PhantomData;
 
+use cryptimitives::key::KeyPair;
+use cryptraits::{
+    aead::Aead,
+    convert::ToVec,
+    kdf::Kdf,
+    key::{KeyPair as _, SecretKey},
+    key_exchange::DiffieHellman,
+    signature::{Signature, Verify},
+};
 use rand_core::{OsRng, RngCore};
 
 use crate::{
     errors::{XxxDhError, XxxDhResult},
     storage::ProtocolStorage,
-    Aead, DiffieHellman, IdentityKeyPair, Kdf, OnetimeKeyPair, PreKeyPair, SecretKey, Signature,
-    ToVec, Verify,
 };
 
 pub const PROTOCOL_INFO: &'static str = "X3DH";
@@ -40,14 +47,17 @@ where
     SIG: Signature,
     S: ProtocolStorage<SK, <SK as SecretKey>::PK, SIG>,
     KDF: Kdf,
-    <SK as DiffieHellman>::SS: ToVec,
+    <SK as DiffieHellman>::SSK: ToVec,
     CIPHER: Aead,
+    XxxDhError: From<<<SK as cryptraits::key::SecretKey>::PK as Verify>::E>
+        + From<<CIPHER as Aead>::E>
+        + From<<KDF as cryptraits::kdf::Kdf>::E>,
 {
     pub fn new(
-        identity_keypair: IdentityKeyPair<SK>,
-        prekey_keypair: PreKeyPair<SK>,
+        identity_keypair: KeyPair<SK>,
+        prekey_keypair: KeyPair<SK>,
         prekey_signature: SIG,
-        onetime_keypairs: Option<Vec<OnetimeKeyPair<SK>>>,
+        onetime_keypairs: Option<Vec<KeyPair<SK>>>,
     ) -> Self {
         let prekey_public = prekey_keypair.to_public();
         let mut storage = S::new(identity_keypair, prekey_keypair);
@@ -94,7 +104,7 @@ where
 
         let sk = self._derive_sk([
             (
-                self.storage.get_identity_key_pair().to_secret(),
+                self.storage.get_identity_key_pair().secret(),
                 &receiver_prekey,
             ),
             (&ephemeral_key, receiver_identity),
@@ -131,8 +141,8 @@ where
         nonce: &[u8],
         ciphertext: &[u8],
     ) -> XxxDhResult<Vec<u8>> {
-        let identity_secret = self.storage.get_identity_key_pair().to_secret();
-        let prekey_secret = self.storage.get_prekey_pair().to_secret();
+        let identity_secret = self.storage.get_identity_key_pair().secret();
+        let prekey_secret = self.storage.get_prekey_pair().secret();
         let onetime_keypair = self
             .storage
             .get_onetime_keypair(receiver_onetime_key)
@@ -143,7 +153,7 @@ where
             (prekey_secret, sender_identity),
             (&identity_secret, sender_ephemeral_key),
             (prekey_secret, sender_ephemeral_key),
-            (onetime_keypair.to_secret(), sender_ephemeral_key),
+            (onetime_keypair.secret(), sender_ephemeral_key),
         ])?;
 
         let cipher = CIPHER::new(&sk);
@@ -165,9 +175,9 @@ where
             data.extend(sk.diffie_hellman(pk).to_vec());
         }
 
-        let h = KDF::new(Some(&vec![0_u8; <SK as DiffieHellman>::SS::LEN]), &data);
+        let h = KDF::new(Some(&vec![0_u8; <SK as DiffieHellman>::SSK::LEN]), &data);
 
-        let mut sk = vec![0_u8; <SK as DiffieHellman>::SS::LEN];
+        let mut sk = vec![0_u8; <SK as DiffieHellman>::SSK::LEN];
 
         h.expand(PROTOCOL_INFO.as_bytes(), &mut sk)?;
 
@@ -182,40 +192,41 @@ where
     feature = "aead-aes-gcm"
 ))]
 mod tests {
-    use crate::{
-        sha256::Kdf,
-        storage::{inmem, IdentityKeyStorage, OnetimeKeyStorage, PreKeyStorage, SignatureStorage},
-        x25519_ristretto, Sign,
+    use cryptimitives::{aead::aes_gcm::Aes256Gcm, kdf::sha256, key::x25519_ristretto};
+    use cryptraits::signature::Sign;
+
+    use crate::storage::{
+        inmem, IdentityKeyStorage, OnetimeKeyStorage, PreKeyStorage, SignatureStorage,
     };
 
     use super::*;
 
     #[test]
     fn it_should_exchange_keys() {
-        let alice_identity = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
-        let alice_prekey = x25519_ristretto::PreKeyPair::generate_with(OsRng);
+        let alice_identity = x25519_ristretto::KeyPair::generate_with(OsRng);
+        let alice_prekey = x25519_ristretto::KeyPair::generate_with(OsRng);
         let alice_signature = alice_identity.sign(&alice_prekey.to_public().to_vec());
         let mut alice_protocol = Protocol::<
-            x25519_ristretto::IdentitySecretKey,
+            x25519_ristretto::SecretKey,
             x25519_ristretto::EphemeralSecretKey,
             x25519_ristretto::Signature,
             inmem::Storage<_, _>,
-            Kdf,
-            crate::aes_gcm::Aead,
+            sha256::Kdf,
+            Aes256Gcm,
         >::new(alice_identity, alice_prekey, alice_signature, None);
 
-        let onetime_keypair = x25519_ristretto::OnetimeKeyPair::generate_with(OsRng);
+        let onetime_keypair = x25519_ristretto::KeyPair::generate_with(OsRng);
 
-        let bob_identity = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
-        let bob_prekey = x25519_ristretto::IdentityKeyPair::generate_with(OsRng);
+        let bob_identity = x25519_ristretto::KeyPair::generate_with(OsRng);
+        let bob_prekey = x25519_ristretto::KeyPair::generate_with(OsRng);
         let bob_signature = bob_identity.sign(&bob_prekey.to_public().to_vec());
         let mut bob_protocol = Protocol::<
-            x25519_ristretto::IdentitySecretKey,
+            x25519_ristretto::SecretKey,
             x25519_ristretto::EphemeralSecretKey,
             x25519_ristretto::Signature,
-            inmem::Storage<_, _>,
-            Kdf,
-            crate::aes_gcm::Aead,
+            inmem::Storage<x25519_ristretto::SecretKey, x25519_ristretto::Signature>,
+            sha256::Kdf,
+            Aes256Gcm,
         >::new(
             bob_identity,
             bob_prekey,
