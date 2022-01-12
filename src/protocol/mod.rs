@@ -120,7 +120,7 @@ where
 
         let cipher = CIPHER::new(&sk);
 
-        let ciphertext = cipher.encrypt(&nonce, &data).unwrap();
+        let ciphertext = cipher.encrypt(&nonce, &data, None).unwrap();
 
         Ok((
             self.storage.get_identity_key_pair().to_public(),
@@ -157,7 +157,7 @@ where
         ])?;
 
         let cipher = CIPHER::new(&sk);
-        cipher.decrypt(nonce, ciphertext)?;
+        cipher.decrypt(nonce, ciphertext, None)?;
 
         self.storage.save_identity(sender_identity)?;
 
