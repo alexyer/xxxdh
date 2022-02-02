@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use cryptimitives::key::KeyPair;
 use cryptraits::{
     aead::Aead,
-    convert::ToVec,
+    convert::{Len, ToVec},
     kdf::Kdf,
     key::{KeyPair as _, SecretKey},
     key_exchange::DiffieHellman,
@@ -169,15 +169,18 @@ where
         &self,
         source_data: [(&SK, &<SK as DiffieHellman>::PK); 4],
     ) -> XxxDhResult<Vec<u8>> {
-        let mut data = vec![0_u8; <<SK as DiffieHellman>::PK as ToVec>::LEN];
+        let mut data = vec![0_u8; <<SK as DiffieHellman>::PK as Len>::LEN];
 
         for (sk, pk) in source_data {
             data.extend(sk.diffie_hellman(pk).to_vec());
         }
 
-        let h = KDF::new(Some(&vec![0_u8; <SK as DiffieHellman>::SSK::LEN]), &data);
+        let h = KDF::new(
+            Some(&vec![0_u8; <<SK as DiffieHellman>::SSK as Len>::LEN]),
+            &data,
+        );
 
-        let mut sk = vec![0_u8; <SK as DiffieHellman>::SSK::LEN];
+        let mut sk = vec![0_u8; <<SK as DiffieHellman>::SSK as Len>::LEN];
 
         h.expand(PROTOCOL_INFO.as_bytes(), &mut sk)?;
 
