@@ -7,7 +7,7 @@ use cryptraits::{
     aead::Aead,
     convert::{Len, ToVec},
     kdf::Kdf,
-    key::{KeyPair as _, SecretKey},
+    key::{Generate, KeyPair as _, SecretKey},
     key_exchange::DiffieHellman,
     signature::{Signature, Verify},
 };
@@ -43,7 +43,7 @@ impl<SK, ESK, SIG, S, KDF, CIPHER> Protocol<SK, ESK, SIG, S, KDF, CIPHER>
 where
     SK: SecretKey + DiffieHellman<PK = <SK as SecretKey>::PK> + From<ESK>,
     <SK as SecretKey>::PK: ToVec + Verify<SIG = SIG>,
-    ESK: SecretKey,
+    ESK: SecretKey + Generate,
     SIG: Signature,
     S: ProtocolStorage<SK, <SK as SecretKey>::PK, SIG>,
     KDF: Kdf,

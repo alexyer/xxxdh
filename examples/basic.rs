@@ -1,7 +1,11 @@
 //! Basic example.
 
 use cryptimitives::{aead, kdf::sha256, key::x25519_ristretto};
-use cryptraits::{convert::ToVec, key::KeyPair, signature::Sign};
+use cryptraits::{
+    convert::ToVec,
+    key::{Generate, KeyPair},
+    signature::Sign,
+};
 use rand_core::OsRng;
 use xxxdh::{
     inmem, IdentityKeyStorage, OnetimeKeyStorage, PreKeyStorage, Protocol, SignatureStorage,
